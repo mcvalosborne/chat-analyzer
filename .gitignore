@@ -1,0 +1,21 @@
+# Sensitive data - never commit
+data/
+analysis/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp
+tmp/
+.cache/

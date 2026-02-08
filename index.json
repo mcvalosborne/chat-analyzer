@@ -1,0 +1,45 @@
+{
+  "conversations": [
+    {
+      "id": "paul-stevens",
+      "name": "Paul Stevens",
+      "relationship_type": "professional/mentor",
+      "context": "Former Director at Social Chain who sponsored McVal's visa and mentored him. Now runs Cocreatd. Relationship evolved from manager/report to peers and friends.",
+      "data_path": "data/chats/paul-stevens/",
+      "analysis_path": "analysis/profiles/paul-stevens/",
+      "date_range": {
+        "start": "2018-12-04",
+        "end": "2026-02-03"
+      },
+      "stats": {
+        "message_count": 10589,
+        "media": {
+          "photos": 206,
+          "videos": 35,
+          "audio": 90,
+          "documents": 14
+        }
+      },
+      "analyses": [
+        {
+          "type": "relationship-dynamics",
+          "file": "relationship-analysis.md",
+          "created": "2026-02-03",
+          "summary": "7-year relationship evolution from mentor/mentee to peers. Communication styles, power dynamics, shared interests, notable moments."
+        }
+      ],
+      "tags": [
+        "social-chain",
+        "cocreatd",
+        "mentor",
+        "uk",
+        "data-analytics",
+        "long-term"
+      ]
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-02-03",
+    "version": "1.0"
+  }
+}
