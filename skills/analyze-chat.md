@@ -1,6 +1,6 @@
 # Analyze Chat Skill
 
-Comprehensive analysis of chat exports with pattern detection and initial profiling.
+Comprehensive analysis of chat exports with pattern detection and initial profiling. Works with any chat platform (WhatsApp, Telegram, iMessage, Slack, Discord, or plain text logs).
 
 ## Trigger
 - `/analyze-chat`
@@ -21,7 +21,13 @@ Task: Explore data/ directory
 
 ### Phase 2: Content Extraction
 Read and process chat content:
-1. Parse WhatsApp export format (timestamps, sender, message)
+1. Auto-detect chat format:
+   - **WhatsApp**: `[date, time] Sender: Message` in `_chat.txt`
+   - **Telegram**: JSON export (`result.json`) or HTML files
+   - **iMessage**: Chat database exports or text dumps
+   - **Slack**: JSON channel exports with nested threads
+   - **Discord**: JSON or CSV exports
+   - **Plain text**: Any timestamped conversation log
 2. Separate messages by participant
 3. Extract:
    - Text messages

@@ -1,14 +1,30 @@
 # Chat Analyzer
 
-A conversation intelligence tool powered by [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that transforms WhatsApp chat exports into psychological profiles, sales strategies, and relationship dynamics reports.
+A conversation intelligence tool powered by [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that transforms chat exports from **any messaging platform** into psychological profiles, sales strategies, and relationship dynamics reports.
 
 Built as a skill-based Claude Code project — no traditional runtime or dependencies. You bring the data, Claude does the analysis.
 
 ---
 
+## Supported Platforms
+
+| Platform | Export Format | Chat File |
+|----------|-------------|-----------|
+| **WhatsApp** | .zip with media | `_chat.txt` |
+| **Telegram** | JSON or HTML (Desktop export) | `result.json` / `messages.html` |
+| **iMessage** | Database export via iMazing etc. | `.txt` or `.csv` |
+| **Slack** | Workspace JSON export | `*.json` per channel |
+| **Discord** | DiscordChatExporter JSON/CSV | `.json` or `.csv` |
+| **Signal** | Plaintext backup | `.txt` or `.xml` |
+| **Any other** | Timestamped text logs | `.txt`, `.csv`, `.json` |
+
+The system auto-detects the format when you run `/analyze-chat`.
+
+---
+
 ## What It Does
 
-Chat Analyzer reads WhatsApp exports (text, images, voice notes, videos, PDFs) and produces structured intelligence reports:
+Chat Analyzer reads chat exports (text, images, voice notes, videos, PDFs) and produces structured intelligence reports:
 
 - **Psychological Profiles** — Big Five personality estimation, attachment style, cognitive style, communication DNA
 - **Sales Strategies** — Buying signal detection, objection prediction, engagement playbooks, product recommendations
@@ -22,11 +38,12 @@ All analysis runs locally. No data leaves your machine.
 ## How It Works
 
 ```
-WhatsApp Export (.zip)
+Chat Export (any platform)
         │
         ▼
 ┌─────────────────────┐
-│  Data Organization   │  Unzip → sort into chats/media/docs
+│  Data Organization   │  Drop files into data/chats/[name]/
+│  + Format Detection  │  Auto-detect: WhatsApp, Telegram, Slack...
 └────────┬────────────┘
          │
          ▼
@@ -70,17 +87,16 @@ No package managers, no `npm install`, no Python environment. The skills are pla
 git clone https://github.com/mcvalosborne/chat-analyzer.git
 cd chat-analyzer
 
-# 2. Export a WhatsApp chat (on your phone):
-#    Chat → ⋮ → More → Export chat → Include media
-#    Transfer the .zip to your machine
+# 2. Export a chat from your platform of choice:
+#    - WhatsApp: Chat → ⋮ → More → Export chat → Include media
+#    - Telegram: Desktop app → ⋮ → Export chat history (JSON format)
+#    - Slack: Workspace settings → Export data
+#    - Discord: Use DiscordChatExporter
+#    - Or just grab any text chat log
 
-# 3. Organize the export
+# 3. Place the export in the data folder
 mkdir -p data/chats/jane-doe/media/{photos,videos,audio,documents}
-unzip WhatsApp\ Chat.zip -d data/chats/jane-doe/
-mv data/chats/jane-doe/*.jpg data/chats/jane-doe/media/photos/
-mv data/chats/jane-doe/*.mp4 data/chats/jane-doe/media/videos/
-mv data/chats/jane-doe/*.opus data/chats/jane-doe/media/audio/
-# Keep _chat.txt in the root of the person folder
+# Drop chat files in the root, media in subfolders
 
 # 4. Start a Claude Code session
 claude
@@ -89,7 +105,7 @@ claude
 /start
 ```
 
-Claude will ask you to choose an analysis depth and goal, then walk you through the rest.
+Claude will auto-detect the chat format, ask you to choose an analysis depth and goal, then walk you through the rest.
 
 ---
 
@@ -103,15 +119,15 @@ chat-analyzer/
 ├── scripts/
 │   └── extract-video-frames.sh   # ffmpeg helper for video thumbnails
 ├── skills/
-│   ├── start-analysis.md          # Interactive startup wizard
-│   ├── analyze-chat.md            # Core chat parsing & pattern detection
-│   ├── profile-person.md          # Psychological profiling framework
-│   ├── sales-insights.md          # Sales receptivity & strategy generation
-│   ├── transcribe-media.md        # Audio/video/image processing
-│   ├── process-whatsapp-export.md # Large export handling (100MB+)
-│   └── compare-sessions.md        # Multi-conversation comparison
+│   ├── start-analysis.md         # Interactive startup wizard
+│   ├── analyze-chat.md           # Core chat parsing & pattern detection
+│   ├── profile-person.md         # Psychological profiling framework
+│   ├── sales-insights.md         # Sales receptivity & strategy generation
+│   ├── transcribe-media.md       # Audio/video/image processing
+│   ├── process-export.md         # Large export handling (100MB+)
+│   └── compare-sessions.md       # Multi-conversation comparison
 ├── data/                    # Your data goes here (git-ignored)
-│   ├── chats/[person]/      #   WhatsApp exports per person
+│   ├── chats/[person]/      #   Chat exports per person
 │   ├── media/               #   Standalone media files
 │   ├── docs/                #   Additional documents
 │   └── links/               #   Saved webpage content
@@ -129,7 +145,7 @@ Both `data/` and `analysis/` are git-ignored — your conversations and profiles
 | Command | Purpose | Output |
 |---------|---------|--------|
 | `/start` | Interactive guided setup — choose depth + goal | Routes to appropriate skill |
-| `/analyze-chat` | Parse messages, compute metrics, detect patterns | `analysis/profiles/[name]/chat-analysis.md` |
+| `/analyze-chat` | Parse messages (any format), compute metrics, detect patterns | `analysis/profiles/[name]/chat-analysis.md` |
 | `/profile-person` | Big Five, attachment style, values, cognitive profile | `analysis/profiles/[name]/profile.md` |
 | `/sales-insights` | Buying signals, objection prep, engagement playbook | `analysis/reports/[name]-sales-strategy.md` |
 | `/transcribe-media` | Process voice notes, images, videos, PDFs | Transcripts added to analysis folder |
@@ -144,7 +160,7 @@ When you run `/start`, you choose how deep to go:
 
 | Level | What's Analyzed | Best For |
 |-------|----------------|----------|
-| **Text only** | `_chat.txt` messages | Fast pattern scan, communication style |
+| **Text only** | Chat text messages | Fast pattern scan, communication style |
 | **Text + Documents** | Messages + PDFs, shared files | Professional relationships, business context |
 | **Full analysis** | Everything — images, voice notes, video frames | Complete psychological profiling |
 
@@ -161,9 +177,9 @@ When you run `/start`, you choose how deep to go:
 ### From Media
 | File Type | What Claude Extracts |
 |-----------|---------------------|
-| Images (JPG/PNG) | Visual descriptions, context, shared interests |
-| Audio (OPUS/M4A/MP3) | Full transcription, tone analysis |
-| Video (MP4) | Audio track + extracted frame analysis |
+| Images (JPG/PNG/WEBP) | Visual descriptions, context, shared interests |
+| Audio (OPUS/OGG/M4A/MP3) | Full transcription, tone analysis |
+| Video (MP4/MOV/WebM) | Audio track + extracted frame analysis |
 | PDFs | Text extraction, document context |
 | vCards (.vcf) | Contact information parsing |
 
@@ -230,6 +246,7 @@ Once you're in a Claude Code session with data loaded:
       "id": "person-name",
       "name": "Person Name",
       "relationship_type": "professional/personal",
+      "platform": "whatsapp",
       "data_path": "data/chats/person-name/",
       "analysis_path": "analysis/profiles/person-name/",
       "date_range": { "start": "2020-01-01", "end": "2024-12-31" },

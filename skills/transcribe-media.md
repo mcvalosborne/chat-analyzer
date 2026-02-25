@@ -11,9 +11,9 @@ Process audio and video files for text analysis integration.
 
 | Type | Formats | Notes |
 |------|---------|-------|
-| Audio | MP3, M4A, WAV, OGG | Voice notes, audio messages |
+| Audio | MP3, M4A, WAV, OGG, OPUS | Voice notes, audio messages (all platforms) |
 | Video | MP4, MOV, WebM | Extract audio track for transcription |
-| Images | PNG, JPG, HEIC | OCR for text, description for context |
+| Images | PNG, JPG, HEIC, WEBP | OCR for text, description for context |
 
 ## Workflow
 
@@ -25,7 +25,7 @@ Scan `data/media/` and catalog:
 - Type (audio/video/image)
 - Size
 - Duration (for audio/video)
-- Associated chat context (if from WhatsApp export)
+- Associated chat context (if from a chat export)
 ```
 
 ### Phase 2: Processing Strategy
@@ -45,10 +45,11 @@ Claude Code can directly process audio files. For each file:
 
 ### Phase 3: Context Integration
 
-For WhatsApp exports, media files are named with timestamps:
-- `IMG-20240115-WA0001.jpg`
-- `PTT-20240115-WA0001.opus` (voice notes)
-- `VID-20240115-WA0001.mp4`
+Media files are often named with timestamps or sequence numbers depending on platform:
+- **WhatsApp**: `IMG-20240115-WA0001.jpg`, `PTT-20240115-WA0001.opus`
+- **Telegram**: `photo_1@15-01-2024_17-30-15.jpg`, `voice_message_2024-01-15.ogg`
+- **Slack/Discord**: Original filenames or hashed IDs
+- **Other**: Varies — check naming patterns during inventory
 
 Match these to chat timestamps to understand context:
 - What was discussed before/after the media?

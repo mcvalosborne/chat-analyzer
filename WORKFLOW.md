@@ -3,7 +3,11 @@
 ## Quick Start (Single Person Analysis)
 
 ```
-1. Export WhatsApp chat → Save to data/chats/[name]/
+1. Export chat from any platform → Save to data/chats/[name]/
+   - WhatsApp: Chat → ⋮ → Export → Include media
+   - Telegram: Desktop → ⋮ → Export chat history
+   - Slack/Discord/iMessage: Use platform export tools
+   - Or just drop any text chat log in the folder
 2. cd ~/Desktop/chat-analyzer
 3. claude (start Claude Code session)
 4. /analyze-chat

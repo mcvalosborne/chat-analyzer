@@ -152,7 +152,7 @@ To analyze a new person without prior context pollution:
    - Reference them in `/compare-sessions`
 
 3. **Load new data**:
-   - Fresh WhatsApp export to `data/chats/`
+   - Fresh chat export to `data/chats/` (any platform)
    - New media to `data/media/`
 
 4. **Run fresh analysis**:

@@ -1,12 +1,12 @@
 # Chat Analyzer Project
 
-Analyze WhatsApp chat exports, media, documents, and links for psychological profiling, decision-making patterns, and sales receptivity insights.
+Analyze chat exports from any messaging platform — WhatsApp, Telegram, iMessage, Slack, Discord, or plain text logs — for psychological profiling, decision-making patterns, and sales receptivity insights.
 
 ## Startup Workflow
 
 **When the user starts a session or says "let's begin", "start", "analyze", or similar:**
 
-1. First, ask: "Do you have a WhatsApp export ready to analyze? If so, please unzip it to `data/chats/` and let me know the folder name. Or drag the .zip file here and I'll help you set it up."
+1. First, ask: "Do you have a chat export ready to analyze? If so, place it in `data/chats/` and let me know the folder name. I support WhatsApp, Telegram, iMessage, Slack, Discord, and plain text logs. Or drag the export file here and I'll help you set it up."
 
 2. Once data is located, ask using AskUserQuestion:
    - **Question**: "What type of analysis would you like?"
@@ -65,20 +65,33 @@ The master index links data folders to analysis folders and stores metadata:
 
 ## Data Input Guidelines
 
-### WhatsApp Export (Large, with Media)
-1. Export from WhatsApp: Chat → Three dots → More → Export chat → Include media
-2. Create a folder: `data/chats/[person-name]/` (lowercase, hyphenated)
-3. Unzip the export and organize:
-   - `_chat.txt` → root of person folder
-   - `*.jpg` → `media/photos/`
-   - `*.mp4`, `*.mov` → `media/videos/`
-   - `*.opus`, `*.m4a` → `media/audio/`
-   - `*.pdf`, `*.csv`, `*.vcf`, `*.docx`, `*.xlsx` → `media/documents/`
+### Supported Platforms
+
+| Platform | How to Export | Primary Chat File |
+|----------|--------------|-------------------|
+| **WhatsApp** | Chat → ⋮ → More → Export chat → Include media | `_chat.txt` |
+| **Telegram** | Desktop app → ⋮ → Export chat history → JSON or HTML | `result.json` or `messages.html` |
+| **iMessage** | Use iMazing or similar tool to export | `.txt` or `.csv` |
+| **Slack** | Workspace admin → Export data | `*.json` per channel |
+| **Discord** | Use DiscordChatExporter | `.json` or `.csv` |
+| **Signal** | Settings → Chats → Export | `.txt` or backup file |
+| **Other** | Any timestamped text log | `.txt`, `.csv`, `.json` |
+
+### Organizing an Export
+1. Create a folder: `data/chats/[person-name]/` (lowercase, hyphenated)
+2. Place the chat file(s) in the root of the person folder
+3. Organize media into subfolders:
+   - Images → `media/photos/`
+   - Videos → `media/videos/`
+   - Audio/voice notes → `media/audio/`
+   - Documents → `media/documents/`
 4. Create matching analysis folder: `analysis/profiles/[person-name]/`
 5. Add entry to `index.json`
 
+The system auto-detects the chat format — just drop the files in and run `/analyze-chat`.
+
 ### Media Files
-- Supported: Images (PNG, JPG), Audio (MP3, M4A), Video (MP4)
+- Supported: Images (PNG, JPG, WEBP), Audio (MP3, M4A, OGG, OPUS), Video (MP4, MOV, WebM)
 - Place in `data/media/` with descriptive names
 - For transcription needs, note file paths for processing
 
@@ -110,7 +123,7 @@ The master index links data folders to analysis folders and stores metadata:
 ## Available Skills
 
 - `/start` - **Begin here** - Interactive guided setup with prompts
-- `/process-export` - Handle large WhatsApp exports (100MB+) with mixed media
+- `/process-export` - Handle large chat exports (100MB+) with mixed media
 - `/analyze-chat` - Full chat analysis with profile generation
 - `/profile-person` - Deep psychological profile from all available data
 - `/sales-insights` - Sales-focused analysis and recommendations
@@ -121,10 +134,10 @@ The master index links data folders to analysis folders and stores metadata:
 
 | File Type | Claude Can... | Method |
 |-----------|---------------|--------|
-| `_chat.txt` | Read directly | Read tool |
+| Chat text (`.txt`, `.json`, `.html`, `.csv`) | Read directly | Read tool |
 | JPEG/PNG images | View and describe | Read tool (multimodal) |
 | PDFs | Extract text + visuals | Read tool |
-| MP3/M4A/OPUS audio | Transcribe directly | Read tool |
+| MP3/M4A/OPUS/OGG audio | Transcribe directly | Read tool |
 | MP4 video | Audio only | Extract frames first (see scripts/) |
 | vCard (.vcf) | Parse text | Read tool |
 
@@ -180,7 +193,7 @@ For comprehensive analysis, use this agent delegation pattern:
 1. Start Claude Code in this folder: `cd ~/Desktop/chat-analyzer && claude`
 2. Say "let's begin" or "start analysis"
 3. Claude will prompt you to:
-   - Upload/locate your WhatsApp export
+   - Upload/locate your chat export (any platform)
    - Choose analysis depth (text only, text + docs, or full)
    - Choose your goal (profile, sales, relationships, or explore)
 4. Follow the guided analysis workflow

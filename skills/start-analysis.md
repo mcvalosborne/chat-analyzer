@@ -20,8 +20,10 @@ ls -la data/chats/
 
 **If empty**, prompt:
 > "I don't see any data in `data/chats/` yet. Please either:
-> 1. Unzip your WhatsApp export there and tell me the folder name, or
-> 2. Drag the .zip file into this chat and I'll help extract it"
+> 1. Place your chat export there and tell me the folder name, or
+> 2. Drag the export file into this chat and I'll help set it up"
+>
+> Supported platforms: WhatsApp (.zip), Telegram (JSON/HTML), iMessage, Slack, Discord, or any plain text chat logs.
 
 **If data exists**, confirm:
 > "I found [folder name]. Is this the chat you want to analyze?"
@@ -38,7 +40,7 @@ Use AskUserQuestion tool:
     "options": [
       {
         "label": "Text only (Recommended)",
-        "description": "Fast analysis of conversation patterns from _chat.txt. Best for initial insights."
+        "description": "Fast analysis of conversation patterns from chat text files. Best for initial insights."
       },
       {
         "label": "Text + Documents",
@@ -91,7 +93,7 @@ Use AskUserQuestion tool:
 Summarize selections:
 > "Got it. I'll run a **[depth]** analysis focused on **[goal]**.
 >
-> Starting with `_chat.txt` to understand the conversation..."
+> Starting with the chat text to understand the conversation..."
 
 Then execute based on selections:
 

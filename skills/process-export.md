@@ -1,15 +1,38 @@
-# Process WhatsApp Export Skill
+# Process Chat Export Skill
 
-Handle large WhatsApp exports (100MB+) with mixed media types.
+Handle large chat exports (100MB+) with mixed media types from any messaging platform.
 
 ## Trigger
 - `/process-export`
-- "Process this WhatsApp export"
+- "Process this chat export"
 - "Analyze the full chat folder"
 
-## WhatsApp Export Structure
+## Supported Platforms
 
-Standard export contains:
+| Platform | Export Format | Chat File | Media Naming |
+|----------|-------------|-----------|--------------|
+| **WhatsApp** | .zip with flat files | `_chat.txt` | `IMG-20240115-WA0001.jpg`, `PTT-*.opus` |
+| **Telegram** | JSON or HTML via Desktop app | `result.json` or `messages.html` | `photo_1@15-01-2024.jpg`, `voice_message.ogg` |
+| **iMessage** | Database export or text dump | `chat.db` export, `.txt` | Varies by export tool |
+| **Slack** | JSON per channel | `*.json` in channel folders | Files in separate directory |
+| **Discord** | JSON or CSV via DiscordChatExporter | `*.json` or `*.csv` | Attachments folder |
+| **Signal** | Plaintext backup | `.txt` or `.xml` | Numbered media files |
+| **Other** | Any timestamped text | `.txt`, `.csv`, `.json` | Varies |
+
+## Format Auto-Detection
+
+On encountering a new export, detect the format:
+
+1. **Check for `_chat.txt`** → WhatsApp
+2. **Check for `result.json` with `"messages"` key** → Telegram JSON
+3. **Check for `messages.html`** → Telegram HTML
+4. **Check for JSON files with `"client_msg_id"` or `"ts"` keys** → Slack
+5. **Check for JSON/CSV with `"Author"`, `"Content"` columns** → Discord
+6. **Fallback** → Parse as generic timestamped text
+
+## Common Export Structures
+
+### WhatsApp
 ```
 WhatsApp Chat - [Name]/
 ├── _chat.txt           # Main conversation (priority 1)
@@ -22,23 +45,44 @@ WhatsApp Chat - [Name]/
 └── *.webp              # Stickers
 ```
 
-## File Naming Convention
+### Telegram (JSON)
+```
+ChatExport_YYYY-MM-DD/
+├── result.json         # All messages with metadata
+├── photos/             # Shared images
+├── video_files/        # Shared videos
+├── voice_messages/     # Voice notes (.ogg)
+├── files/              # Documents
+└── stickers/           # Sticker images
+```
 
-WhatsApp names files with timestamps:
-- `00001308-Recycled & Sustainable Footwear.pdf` → sequence 1308
-- `00000508-GIF-2019-11-12-17-30-15.mp4` → sent Nov 12, 2019 at 17:30:15
+### Slack
+```
+export/
+├── channel-name/
+│   ├── 2024-01-15.json  # Messages by date
+│   ├── 2024-01-16.json
+│   └── ...
+├── users.json           # User metadata
+└── channels.json        # Channel metadata
+```
 
-This lets you correlate media with chat context.
+### Discord (DiscordChatExporter)
+```
+export/
+├── channel-name.json    # All messages
+└── attachments/         # Media files
+```
 
 ## Processing Strategy by File Type
 
-### 1. Text Chat (`_chat.txt`) - PRIORITY
+### 1. Chat Text (Any Format) - PRIORITY
 
 **Tool:** Read tool directly
 **Approach:**
-- Read full file (858 KB is easily handled)
-- Parse WhatsApp format: `[date, time] Sender: Message`
-- Extract media references: `<Media omitted>` or `[filename] (file attached)`
+- Read the primary chat file
+- Auto-detect and parse the platform's format
+- Extract: timestamps, senders, messages, media references, reactions, replies
 
 **Analysis:**
 - Message frequency and timing
@@ -86,9 +130,8 @@ Phase 3: Deep Dive
 - Categorize: product brochure, article, receipt, contract, etc.
 
 **High value for sales:** Documents shared reveal researched interests
-- Example: "Recycled & Sustainable Footwear.pdf" = eco-conscious, fashion interest
 
-### 4. Video Files (MP4)
+### 4. Video Files (MP4/MOV/WebM)
 
 **Tool:** Bash with ffmpeg for frame extraction
 **Approach:**
@@ -105,12 +148,7 @@ ffmpeg -i video.mp4 -vn -acodec copy audio.m4a
 
 **Then:** Read extracted thumbnails with Read tool
 
-**What to look for:**
-- GIF type (meme, reaction, funny clip)
-- Video content (personal, entertainment, educational)
-- Shared video sources (YouTube, TikTok, etc.)
-
-### 5. Audio Files (OPUS/M4A/MP3)
+### 5. Audio Files (OPUS/OGG/M4A/MP3)
 
 **Tool:** Read tool directly (Claude transcribes audio)
 **Approach:**
@@ -124,24 +162,23 @@ ffmpeg -i video.mp4 -vn -acodec copy audio.m4a
 **Approach:**
 - Parse vCard for name, phone, email
 - Sharing contacts indicates relationship depth
-- Context: why was this contact shared?
 
 ## Parallel Processing Architecture
 
-For a 146 MB export with thousands of files:
+For a large export with thousands of files:
 
 ```
 Main Agent (orchestrator)
 │
-├─ Task 1: Read _chat.txt → extract timeline, media references
+├─ Task 1: Read chat text → extract timeline, media references
 │
 ├─ Task 2 (Explore): Catalog all media files by type and date
 │
 ├─ Task 3-6 (parallel, general-purpose):
-│   ├─ Agent A: Analyze images from 2018-2019
-│   ├─ Agent B: Analyze images from 2020-2021
-│   ├─ Agent C: Analyze images from 2022-2023
-│   └─ Agent D: Analyze images from 2024-present
+│   ├─ Agent A: Analyze images from Period 1
+│   ├─ Agent B: Analyze images from Period 2
+│   ├─ Agent C: Analyze images from Period 3
+│   └─ Agent D: Analyze images from Period 4
 │
 ├─ Task 7: Read all PDFs, summarize each
 │
@@ -156,6 +193,7 @@ Generate `analysis/reports/media-analysis.md`:
 
 ```markdown
 # Media Analysis: [Chat Name]
+Platform: [detected platform]
 Export size: [X] MB
 Date range: [start] - [end]
 
@@ -199,7 +237,7 @@ Date range: [start] - [end]
 
 ## Practical Tips
 
-**Start with text:** The `_chat.txt` contains 90% of the insight value. Media adds color.
+**Start with text:** The chat text file contains 90% of the insight value. Media adds color.
 
 **Sample before bulk:** Don't analyze 500 images individually. Sample 30-50 strategically.
 
