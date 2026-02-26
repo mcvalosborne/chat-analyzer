@@ -1,6 +1,7 @@
 # Sensitive data - never commit
 data/
 analysis/
+web/history/
 
 # OS files
 .DS_Store

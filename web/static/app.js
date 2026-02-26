@@ -4,6 +4,130 @@ const $$ = (sel) => document.querySelectorAll(sel);
 let sessionId = null;
 let selectedType = null;
 let rawMarkdown = "";
+let activeHistoryId = null;
+
+// --- Sidebar ---
+
+const sidebar = $("#sidebar");
+const sidebarList = $("#sidebar-list");
+
+$("#sidebar-open").addEventListener("click", () => sidebar.classList.remove("collapsed"));
+$("#sidebar-close").addEventListener("click", () => sidebar.classList.add("collapsed"));
+
+function loadHistoryList() {
+    fetch("/api/history")
+        .then((r) => r.json())
+        .then((entries) => {
+            if (!entries.length) {
+                sidebarList.innerHTML = '<p class="sidebar-empty">No saved analyses yet.</p>';
+                return;
+            }
+            sidebarList.innerHTML = entries
+                .map((e) => {
+                    const date = new Date(e.timestamp * 1000);
+                    const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                    const typeLabel = e.analysis_type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                    return `<button class="sidebar-item${e.id === activeHistoryId ? " active" : ""}" data-id="${e.id}">
+                        <div class="sidebar-item-title">${escapeHtml(e.title)}</div>
+                        <div class="sidebar-item-meta">
+                            <span class="badge ${e.platform}">${e.platform}</span>
+                            <span>${typeLabel}</span>
+                            <span>${dateStr}</span>
+                            <button class="sidebar-item-delete" data-id="${e.id}" title="Delete">&times;</button>
+                        </div>
+                    </button>`;
+                })
+                .join("");
+
+            // Click to load
+            sidebarList.querySelectorAll(".sidebar-item").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    if (e.target.classList.contains("sidebar-item-delete")) return;
+                    loadHistoryEntry(btn.dataset.id);
+                });
+            });
+
+            // Delete buttons
+            sidebarList.querySelectorAll(".sidebar-item-delete").forEach((btn) => {
+                btn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    deleteHistoryEntry(btn.dataset.id);
+                });
+            });
+        });
+}
+
+function loadHistoryEntry(id) {
+    fetch(`/api/history/${id}`)
+        .then((r) => r.json())
+        .then((data) => {
+            if (data.error) return;
+
+            // Set active state
+            activeHistoryId = id;
+            sessionId = id;
+            rawMarkdown = data.analysis_md;
+
+            // Show results
+            resultsSection.classList.add("visible");
+            resultsContent.innerHTML = renderMarkdown(rawMarkdown);
+
+            // Show file info
+            dropZone.classList.add("has-file");
+            fileInfo.classList.add("visible");
+            $(".file-info .filename").textContent = data.filename || data.title;
+            let metaHTML = `<span class="badge ${data.platform}">${data.platform}</span>`;
+            if (data.detection?.message_count_estimate) {
+                metaHTML += `<span>${data.detection.message_count_estimate.toLocaleString()} messages</span>`;
+            }
+            if (data.detection?.participants?.length) {
+                metaHTML += `<span>${data.detection.participants.join(", ")}</span>`;
+            }
+            $(".file-info .meta").innerHTML = metaHTML;
+            $(".drop-prompt").style.display = "none";
+
+            // Hide analysis type selector (already analyzed)
+            analysisSection.classList.remove("visible");
+            analyzeBtn.classList.remove("visible");
+
+            // Show follow-up chat and restore prior follow-ups
+            const followupSection = $(".followup-section");
+            followupSection.classList.add("visible");
+            followupThread.innerHTML = "";
+
+            if (data.followups && data.followups.length) {
+                for (const msg of data.followups) {
+                    const div = document.createElement("div");
+                    div.className = `followup-msg ${msg.role === "user" ? "user" : "assistant"}`;
+                    div.innerHTML = msg.role === "user" ? escapeHtml(msg.content) : renderMarkdown(msg.content);
+                    followupThread.appendChild(div);
+                }
+            }
+
+            $("#followup-input").focus();
+
+            // Highlight in sidebar
+            loadHistoryList();
+
+            // Collapse sidebar on mobile
+            if (window.innerWidth < 768) {
+                sidebar.classList.add("collapsed");
+            }
+        });
+}
+
+function deleteHistoryEntry(id) {
+    fetch(`/api/history/${id}`, { method: "DELETE" }).then(() => {
+        if (activeHistoryId === id) {
+            activeHistoryId = null;
+            resetUI();
+        }
+        loadHistoryList();
+    });
+}
+
+// Load history on startup
+document.addEventListener("DOMContentLoaded", loadHistoryList);
 
 // --- Drop Zone ---
 
@@ -173,6 +297,10 @@ function onAnalysisComplete() {
     // Show follow-up chat
     $(".followup-section").classList.add("visible");
     $("#followup-input").focus();
+
+    // Refresh sidebar with new entry
+    activeHistoryId = sessionId;
+    loadHistoryList();
 }
 
 // --- Copy / Download ---

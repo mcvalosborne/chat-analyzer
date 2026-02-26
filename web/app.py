@@ -11,7 +11,9 @@ Opens at http://localhost:8420
 
 import json
 import os
+import time
 import uuid
+from pathlib import Path
 
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
@@ -21,6 +23,10 @@ app = Flask(__name__)
 
 # In-memory session storage
 sessions: dict[str, dict] = {}
+
+# Persistent history directory
+HISTORY_DIR = Path(__file__).parent / "history"
+HISTORY_DIR.mkdir(exist_ok=True)
 
 
 @app.route("/")
@@ -126,10 +132,15 @@ def analyze():
                 yield f"data: {json.dumps({'type': 'content', 'text': text})}\n\n"
 
             # Save conversation history for follow-ups
+            analysis_md = "".join(full_response)
             session["history"] = [
                 {"role": "user", "content": f"[Initial {analysis_type} analysis of chat export]"},
-                {"role": "assistant", "content": "".join(full_response)},
+                {"role": "assistant", "content": analysis_md},
             ]
+            session["analysis_type"] = analysis_type
+
+            # Auto-save to history
+            _save_history(session, analysis_md, analysis_type)
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
@@ -189,6 +200,100 @@ def followup():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+def _save_history(session: dict, analysis_md: str, analysis_type: str):
+    """Save an analysis to the history directory."""
+    entry_id = session["id"]
+    detection = session.get("detection", {})
+    participants = detection.get("participants", [])
+
+    # Build a human-readable title
+    title = " & ".join(participants[:2]) if participants else session.get("chat_filename", "Unknown")
+
+    entry = {
+        "id": entry_id,
+        "title": title,
+        "filename": session.get("chat_filename"),
+        "platform": session.get("platform", "unknown"),
+        "analysis_type": analysis_type,
+        "detection": detection,
+        "timestamp": time.time(),
+        "analysis_md": analysis_md,
+        "history": session.get("history", []),
+        "chat_content": session.get("chat_content", ""),
+    }
+
+    path = HISTORY_DIR / f"{entry_id}.json"
+    path.write_text(json.dumps(entry, ensure_ascii=False))
+
+
+@app.route("/api/history")
+def list_history():
+    """List saved analyses, newest first."""
+    entries = []
+    for f in HISTORY_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text())
+            entries.append({
+                "id": data["id"],
+                "title": data.get("title", "Untitled"),
+                "platform": data.get("platform", "unknown"),
+                "analysis_type": data.get("analysis_type", ""),
+                "timestamp": data.get("timestamp", 0),
+                "filename": data.get("filename", ""),
+            })
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    entries.sort(key=lambda e: e["timestamp"], reverse=True)
+    return jsonify(entries)
+
+
+@app.route("/api/history/<entry_id>")
+def get_history(entry_id):
+    """Load a saved analysis by ID."""
+    path = HISTORY_DIR / f"{entry_id}.json"
+    if not path.exists():
+        return jsonify({"error": "Not found"}), 404
+
+    data = json.loads(path.read_text())
+
+    # Restore the in-memory session so follow-ups work
+    sessions[entry_id] = {
+        "id": entry_id,
+        "chat_content": data.get("chat_content", ""),
+        "chat_filename": data.get("filename"),
+        "platform": data.get("platform", "unknown"),
+        "detection": data.get("detection", {}),
+        "additional_files": [],
+        "history": data.get("history", []),
+        "analysis_type": data.get("analysis_type", ""),
+    }
+
+    return jsonify({
+        "id": data["id"],
+        "title": data.get("title", "Untitled"),
+        "filename": data.get("filename"),
+        "platform": data.get("platform"),
+        "analysis_type": data.get("analysis_type"),
+        "detection": data.get("detection", {}),
+        "timestamp": data.get("timestamp", 0),
+        "analysis_md": data.get("analysis_md", ""),
+        "followups": [
+            msg for msg in data.get("history", [])[2:]  # skip initial pair
+        ],
+    })
+
+
+@app.route("/api/history/<entry_id>", methods=["DELETE"])
+def delete_history(entry_id):
+    """Delete a saved analysis."""
+    path = HISTORY_DIR / f"{entry_id}.json"
+    if path.exists():
+        path.unlink()
+    sessions.pop(entry_id, None)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/mode")

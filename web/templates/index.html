@@ -7,79 +7,97 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Chat Analyzer</h1>
-            <p>Drop a chat export from any platform. Get psychological profiles, sales insights, and relationship analysis.</p>
-            <p class="mode-badge" id="mode-badge"></p>
-        </header>
-
-        <!-- Drop Zone -->
-        <div class="drop-zone">
-            <div class="drop-prompt">
-                <h2>Drop chat files here</h2>
-                <p class="formats">WhatsApp &middot; Telegram &middot; Slack &middot; Discord &middot; iMessage &middot; Plain text</p>
-                <p class="formats" style="margin-top: 0.5rem">.txt &nbsp; .json &nbsp; .csv &nbsp; .html &nbsp; + images &amp; PDFs</p>
+    <div class="layout">
+        <!-- History Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>History</h2>
+                <button class="sidebar-toggle" id="sidebar-close">&times;</button>
             </div>
-            <div class="file-info">
-                <button class="clear-btn">Clear</button>
-                <div class="filename"></div>
-                <div class="meta"></div>
+            <div class="sidebar-list" id="sidebar-list">
+                <p class="sidebar-empty">No saved analyses yet.</p>
             </div>
-            <input type="file" id="file-input" multiple>
-        </div>
+        </aside>
 
-        <div class="status">
-            <div class="spinner"></div>
-            <span class="status-text">Detecting format...</span>
-        </div>
+        <div class="main">
+            <div class="container">
+                <header>
+                    <div class="header-row">
+                        <button class="sidebar-toggle" id="sidebar-open">&#9776;</button>
+                        <h1>Chat Analyzer</h1>
+                    </div>
+                    <p>Drop a chat export from any platform. Get psychological profiles, sales insights, and relationship analysis.</p>
+                    <p class="mode-badge" id="mode-badge"></p>
+                </header>
 
-        <div class="error"></div>
+                <!-- Drop Zone -->
+                <div class="drop-zone">
+                    <div class="drop-prompt">
+                        <h2>Drop chat files here</h2>
+                        <p class="formats">WhatsApp &middot; Telegram &middot; Slack &middot; Discord &middot; iMessage &middot; Plain text</p>
+                        <p class="formats" style="margin-top: 0.5rem">.txt &nbsp; .json &nbsp; .csv &nbsp; .html &nbsp; + images &amp; PDFs</p>
+                    </div>
+                    <div class="file-info">
+                        <button class="clear-btn">Clear</button>
+                        <div class="filename"></div>
+                        <div class="meta"></div>
+                    </div>
+                    <input type="file" id="file-input" multiple>
+                </div>
 
-        <!-- Analysis Type -->
-        <div class="analysis-section">
-            <label>Analysis Type</label>
-            <div class="type-grid">
-                <div class="type-card" data-type="psychological_profile">
-                    <h3>Psychological Profile</h3>
-                    <p>Big Five personality, attachment style, values, decision-making patterns</p>
+                <div class="status">
+                    <div class="spinner"></div>
+                    <span class="status-text">Detecting format...</span>
                 </div>
-                <div class="type-card" data-type="sales_insights">
-                    <h3>Sales Insights</h3>
-                    <p>Buying signals, objection prediction, engagement playbook</p>
+
+                <div class="error"></div>
+
+                <!-- Analysis Type -->
+                <div class="analysis-section">
+                    <label>Analysis Type</label>
+                    <div class="type-grid">
+                        <div class="type-card" data-type="psychological_profile">
+                            <h3>Psychological Profile</h3>
+                            <p>Big Five personality, attachment style, values, decision-making patterns</p>
+                        </div>
+                        <div class="type-card" data-type="sales_insights">
+                            <h3>Sales Insights</h3>
+                            <p>Buying signals, objection prediction, engagement playbook</p>
+                        </div>
+                        <div class="type-card" data-type="relationship_dynamics">
+                            <h3>Relationship Dynamics</h3>
+                            <p>Power balance, communication health, conflict patterns, evolution</p>
+                        </div>
+                        <div class="type-card" data-type="general_exploration">
+                            <h3>General Exploration</h3>
+                            <p>Open-ended overview — topics, sentiment, patterns, key moments</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="type-card" data-type="relationship_dynamics">
-                    <h3>Relationship Dynamics</h3>
-                    <p>Power balance, communication health, conflict patterns, evolution</p>
+
+                <button class="analyze-btn">Analyze</button>
+
+                <!-- Results -->
+                <div class="results-section">
+                    <div class="results-header">
+                        <h2>Results</h2>
+                        <div class="results-actions">
+                            <button id="copy-btn">Copy</button>
+                            <button id="download-btn">Download .md</button>
+                        </div>
+                    </div>
+                    <div class="results-content"></div>
                 </div>
-                <div class="type-card" data-type="general_exploration">
-                    <h3>General Exploration</h3>
-                    <p>Open-ended overview — topics, sentiment, patterns, key moments</p>
+
+                <!-- Follow-up Chat -->
+                <div class="followup-section">
+                    <div class="followup-thread" id="followup-thread"></div>
+                    <form class="followup-form" id="followup-form">
+                        <input type="text" id="followup-input" placeholder="Ask a follow-up question..." autocomplete="off">
+                        <button type="submit" id="followup-btn">Send</button>
+                    </form>
                 </div>
             </div>
-        </div>
-
-        <button class="analyze-btn">Analyze</button>
-
-        <!-- Results -->
-        <div class="results-section">
-            <div class="results-header">
-                <h2>Results</h2>
-                <div class="results-actions">
-                    <button id="copy-btn">Copy</button>
-                    <button id="download-btn">Download .md</button>
-                </div>
-            </div>
-            <div class="results-content"></div>
-        </div>
-
-        <!-- Follow-up Chat -->
-        <div class="followup-section">
-            <div class="followup-thread" id="followup-thread"></div>
-            <form class="followup-form" id="followup-form">
-                <input type="text" id="followup-input" placeholder="Ask a follow-up question..." autocomplete="off">
-                <button type="submit" id="followup-btn">Send</button>
-            </form>
         </div>
     </div>
 
