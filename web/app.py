@@ -133,10 +133,29 @@ def analyze():
     )
 
 
+@app.route("/api/mode")
+def mode():
+    """Return which backend mode is active."""
+    from analyzer import _use_cli
+    return jsonify({"mode": "cli" if _use_cli() else "api"})
+
+
 if __name__ == "__main__":
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("\n⚠  ANTHROPIC_API_KEY not set. Export it or run inside a Claude Code session.\n")
+    import shutil
+
+    has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_cli = shutil.which("claude") is not None
 
     print("\n  Chat Analyzer")
     print("  http://localhost:8420\n")
+
+    if has_api_key:
+        print("  Mode: API (using ANTHROPIC_API_KEY)")
+    elif has_cli:
+        print("  Mode: Claude Code CLI (using your subscription)")
+    else:
+        print("  ⚠  No ANTHROPIC_API_KEY set and 'claude' CLI not found.")
+        print("  Set ANTHROPIC_API_KEY or install Claude Code to use this tool.\n")
+
+    print()
     app.run(host="127.0.0.1", port=8420, debug=False)

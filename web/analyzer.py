@@ -1,17 +1,30 @@
-"""Chat format detection and Claude API streaming analysis."""
+"""Chat format detection and analysis streaming via Claude API or Claude Code CLI."""
 
 import base64
 import json
 import mimetypes
 import os
 import re
-from pathlib import Path
-
-import anthropic
+import shutil
+import subprocess
+import tempfile
 
 from prompts import SYSTEM_BASE, FORMAT_HINTS, ANALYSIS_FRAMEWORKS
 
-client = anthropic.Anthropic()
+
+def _use_cli():
+    """Determine whether to use Claude Code CLI (subscription) or direct API."""
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return False
+    # Check if claude CLI is available
+    return shutil.which("claude") is not None
+
+
+def _get_api_client():
+    """Lazy-load the Anthropic client only when needed."""
+    import anthropic
+    return anthropic.Anthropic()
+
 
 # --- Format Detection ---
 
@@ -20,59 +33,46 @@ def detect_format(filename: str, content: bytes) -> dict:
     name = filename.lower()
     text = None
 
-    # Try decoding as text
     try:
         text = content.decode("utf-8")
     except (UnicodeDecodeError, ValueError):
         pass
 
-    # WhatsApp: _chat.txt or WhatsApp format pattern
     if name == "_chat.txt" or name.endswith("_chat.txt"):
         return _whatsapp_metadata(text)
 
-    # Telegram JSON
     if name.endswith(".json") and text:
         try:
             data = json.loads(text)
             if isinstance(data, dict) and "messages" in data:
+                msgs = data["messages"]
+                if len(msgs) > 0 and isinstance(msgs[0], dict) and "author" in msgs[0]:
+                    return _discord_metadata(msgs)
                 return _telegram_json_metadata(data)
-            # Slack: list of objects with "ts" key
             if isinstance(data, list) and len(data) > 0 and "ts" in data[0]:
                 return _slack_metadata(data)
-            # Discord: dict or list with "Author" or "author"
-            if isinstance(data, dict) and "messages" in data:
-                msgs = data["messages"]
-                if len(msgs) > 0 and "author" in msgs[0]:
-                    return _discord_metadata(msgs)
             if isinstance(data, list) and len(data) > 0 and "Author" in data[0]:
                 return _discord_metadata(data)
         except json.JSONDecodeError:
             pass
 
-    # Telegram HTML
     if name == "messages.html" or (name.endswith(".html") and text and "tgme" in text):
         return {"platform": "telegram_html", "confidence": "medium", "message_count_estimate": text.count("message default") if text else 0}
 
-    # CSV with Discord headers
     if name.endswith(".csv") and text:
         first_line = text.split("\n")[0] if text else ""
         if "Author" in first_line and "Content" in first_line:
             lines = text.strip().split("\n")
             return {"platform": "discord", "confidence": "high", "message_count_estimate": max(0, len(lines) - 1)}
 
-    # Generic text — check for WhatsApp-like patterns
     if text and name.endswith(".txt"):
-        # WhatsApp pattern: [dd/mm/yyyy, hh:mm:ss] or mm/dd/yy
         wa_pattern = re.compile(r"\[\d{1,2}/\d{1,2}/\d{2,4},?\s+\d{1,2}:\d{2}")
         wa_matches = wa_pattern.findall(text[:5000])
         if len(wa_matches) > 3:
             return _whatsapp_metadata(text)
-
-        # Generic timestamped text
         lines = text.strip().split("\n")
         return {"platform": "generic", "confidence": "low", "message_count_estimate": len(lines)}
 
-    # Non-text file
     return {"platform": "unknown", "confidence": "low", "message_count_estimate": 0}
 
 
@@ -80,12 +80,9 @@ def _whatsapp_metadata(text: str) -> dict:
     if not text:
         return {"platform": "whatsapp", "confidence": "high", "message_count_estimate": 0}
     lines = text.strip().split("\n")
-    # Count message lines (start with timestamp bracket)
     msg_count = sum(1 for l in lines if l.startswith("[") or re.match(r"\d{1,2}/\d{1,2}/\d{2,4}", l))
-    # Extract date range
     dates = re.findall(r"(\d{1,2}/\d{1,2}/\d{2,4})", text[:500] + text[-500:])
     date_range = {"start": dates[0], "end": dates[-1]} if dates else {}
-    # Extract participants
     participants = set()
     for match in re.finditer(r"[\]\s]([^:\[\]]+?):\s", text[:10000]):
         name = match.group(1).strip()
@@ -148,16 +145,11 @@ def _discord_metadata(data: list) -> dict:
 
 # --- Analysis Streaming ---
 
-MAX_CHAT_CHARS = 600_000  # ~150k tokens, leaves room for system prompt + response
+MAX_CHAT_CHARS = 600_000  # ~150k tokens
 
-def stream_analysis(
-    chat_content: str,
-    analysis_type: str,
-    platform: str,
-    additional_files: list[dict] | None = None,
-):
-    """Stream analysis results from Claude API via SSE-compatible generator."""
 
+def _build_prompt(chat_content: str, analysis_type: str, platform: str) -> tuple[str, str]:
+    """Build system prompt and user message for analysis."""
     framework = ANALYSIS_FRAMEWORKS.get(analysis_type, ANALYSIS_FRAMEWORKS["general_exploration"])
     format_hint = FORMAT_HINTS.get(platform, FORMAT_HINTS["generic"])
 
@@ -168,20 +160,91 @@ def stream_analysis(
 
 {framework}"""
 
-    # Build messages
-    messages_content = []
-
-    # Add chat text
+    # Truncate if needed
     if len(chat_content) > MAX_CHAT_CHARS:
-        # Take first 10% and last 90% for recency bias
         head = chat_content[:MAX_CHAT_CHARS // 10]
         tail = chat_content[-(MAX_CHAT_CHARS * 9 // 10):]
-        truncated_text = f"{head}\n\n[... {len(chat_content) - MAX_CHAT_CHARS:,} characters omitted for length — showing earliest and most recent messages ...]\n\n{tail}"
-        messages_content.append({"type": "text", "text": f"Analyze this chat export:\n\n<chat_content>\n{truncated_text}\n</chat_content>"})
+        chat_text = f"{head}\n\n[... {len(chat_content) - MAX_CHAT_CHARS:,} characters omitted — showing earliest and most recent messages ...]\n\n{tail}"
     else:
-        messages_content.append({"type": "text", "text": f"Analyze this chat export:\n\n<chat_content>\n{chat_content}\n</chat_content>"})
+        chat_text = chat_content
 
-    # Add additional files (images, PDFs)
+    user_message = f"Analyze this chat export:\n\n<chat_content>\n{chat_text}\n</chat_content>"
+
+    return system_prompt, user_message
+
+
+def stream_analysis(
+    chat_content: str,
+    analysis_type: str,
+    platform: str,
+    additional_files: list[dict] | None = None,
+):
+    """Stream analysis — auto-selects Claude Code CLI or direct API."""
+    if _use_cli():
+        yield from _stream_via_cli(chat_content, analysis_type, platform, additional_files)
+    else:
+        yield from _stream_via_api(chat_content, analysis_type, platform, additional_files)
+
+
+def _stream_via_cli(
+    chat_content: str,
+    analysis_type: str,
+    platform: str,
+    additional_files: list[dict] | None = None,
+):
+    """Stream analysis through the Claude Code CLI (uses subscription credits)."""
+    system_prompt, user_message = _build_prompt(chat_content, analysis_type, platform)
+
+    # Add any additional text files inline
+    if additional_files:
+        for f in additional_files:
+            if f["type"] == "text":
+                user_message += f"\n\n<additional_document name=\"{f['name']}\">\n{f['data']}\n</additional_document>"
+
+    # Write the full prompt to a temp file (handles large content cleanly)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
+        tmp.write(user_message)
+        tmp_path = tmp.name
+
+    try:
+        proc = subprocess.Popen(
+            [
+                "claude",
+                "-p",                      # print mode (non-interactive, single turn)
+                "--output-format", "text",  # plain text output
+                "--model", "sonnet",        # fast + capable
+                "--system-prompt", system_prompt,
+                "--input-file", tmp_path,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,  # line-buffered
+        )
+
+        for line in iter(proc.stdout.readline, ""):
+            yield line
+        proc.wait()
+
+        if proc.returncode != 0:
+            stderr = proc.stderr.read()
+            if stderr:
+                yield f"\n\n---\n**Error from Claude Code:** {stderr.strip()}"
+    finally:
+        os.unlink(tmp_path)
+
+
+def _stream_via_api(
+    chat_content: str,
+    analysis_type: str,
+    platform: str,
+    additional_files: list[dict] | None = None,
+):
+    """Stream analysis through the Anthropic API directly (uses API key)."""
+    system_prompt, user_message = _build_prompt(chat_content, analysis_type, platform)
+
+    messages_content = [{"type": "text", "text": user_message}]
+
     if additional_files:
         for f in additional_files:
             if f["type"] == "image":
@@ -210,6 +273,7 @@ def stream_analysis(
 
     messages = [{"role": "user", "content": messages_content}]
 
+    client = _get_api_client()
     with client.messages.stream(
         model="claude-sonnet-4-20250514",
         max_tokens=12000,
@@ -241,7 +305,6 @@ def prepare_file(filename: str, content: bytes) -> dict | None:
             "name": filename,
         }
     else:
-        # Try as text
         try:
             text = content.decode("utf-8")
             return {"type": "text", "data": text, "name": filename}

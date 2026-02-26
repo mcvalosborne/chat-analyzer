@@ -43,6 +43,8 @@ header p {
     margin-top: 0.25rem;
 }
 
+.mode-badge { margin-top: 0.4rem; }
+
 /* Drop Zone */
 .drop-zone {
     border: 2px dashed var(--border);

@@ -11,6 +11,7 @@
         <header>
             <h1>Chat Analyzer</h1>
             <p>Drop a chat export from any platform. Get psychological profiles, sales insights, and relationship analysis.</p>
+            <p class="mode-badge" id="mode-badge"></p>
         </header>
 
         <!-- Drop Zone -->
@@ -74,5 +75,15 @@
     </div>
 
     <script src="/static/app.js"></script>
+    <script>
+        fetch("/api/mode").then(r => r.json()).then(data => {
+            const el = document.getElementById("mode-badge");
+            if (data.mode === "cli") {
+                el.innerHTML = '<span class="badge generic">Claude Code subscription</span>';
+            } else {
+                el.innerHTML = '<span class="badge generic">API key</span>';
+            }
+        });
+    </script>
 </body>
 </html>

@@ -90,14 +90,20 @@ For the **web UI** only: Python 3 + pip (auto-creates a venv).
 git clone https://github.com/mcvalosborne/chat-analyzer.git
 cd chat-analyzer
 
-# Set your API key
-export ANTHROPIC_API_KEY=your-key-here
-
 # Launch the web UI
 ./web/start.sh
 ```
 
 Open http://localhost:8420, drag in a chat export, pick an analysis type, and hit Analyze. Results stream in real-time.
+
+The server auto-detects how to connect to Claude:
+
+| You have... | It uses | Cost |
+|-------------|---------|------|
+| `claude` CLI installed | Claude Code subscription | Included in your plan |
+| `ANTHROPIC_API_KEY` set | Anthropic API directly | Per-token API pricing |
+
+If both are available, it prefers the API key. To force subscription mode, just don't set the env var.
 
 The first run creates a Python venv and installs Flask + the Anthropic SDK (~2 deps).
 
