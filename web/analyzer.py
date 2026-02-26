@@ -201,37 +201,37 @@ def _stream_via_cli(
             if f["type"] == "text":
                 user_message += f"\n\n<additional_document name=\"{f['name']}\">\n{f['data']}\n</additional_document>"
 
-    # Write the full prompt to a temp file (handles large content cleanly)
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
-        tmp.write(user_message)
-        tmp_path = tmp.name
+    # Clean environment so claude doesn't think it's nested inside another session
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
 
-    try:
-        proc = subprocess.Popen(
-            [
-                "claude",
-                "-p",                      # print mode (non-interactive, single turn)
-                "--output-format", "text",  # plain text output
-                "--model", "sonnet",        # fast + capable
-                "--system-prompt", system_prompt,
-                "--input-file", tmp_path,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,  # line-buffered
-        )
+    proc = subprocess.Popen(
+        [
+            "claude",
+            "-p",                      # print mode (non-interactive, single turn)
+            "--output-format", "text",  # plain text output
+            "--model", "sonnet",        # fast + capable
+            "--append-system-prompt", system_prompt,
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,  # line-buffered
+        env=env,
+    )
 
-        for line in iter(proc.stdout.readline, ""):
-            yield line
-        proc.wait()
+    # Send prompt via stdin
+    proc.stdin.write(user_message)
+    proc.stdin.close()
 
-        if proc.returncode != 0:
-            stderr = proc.stderr.read()
-            if stderr:
-                yield f"\n\n---\n**Error from Claude Code:** {stderr.strip()}"
-    finally:
-        os.unlink(tmp_path)
+    for line in iter(proc.stdout.readline, ""):
+        yield line
+    proc.wait()
+
+    if proc.returncode != 0:
+        stderr = proc.stderr.read()
+        if stderr:
+            yield f"\n\n---\n**Error from Claude Code:** {stderr.strip()}"
 
 
 def _stream_via_api(
