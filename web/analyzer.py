@@ -284,6 +284,121 @@ def _stream_via_api(
             yield text
 
 
+# --- Follow-up Streaming ---
+
+def stream_followup(
+    chat_content: str,
+    platform: str,
+    history: list[dict],
+    question: str,
+):
+    """Stream a follow-up response with conversation context."""
+    if _use_cli():
+        yield from _followup_via_cli(chat_content, platform, history, question)
+    else:
+        yield from _followup_via_api(chat_content, platform, history, question)
+
+
+def _followup_system_prompt(platform: str) -> str:
+    format_hint = FORMAT_HINTS.get(platform, FORMAT_HINTS["generic"])
+    return f"""{SYSTEM_BASE}
+
+## Platform Context
+{format_hint}
+
+You are continuing a conversation about a chat export analysis. The user has follow-up questions about your previous analysis. Answer based on the chat data and your prior findings. Be specific and cite evidence from the messages when possible."""
+
+
+def _followup_via_cli(
+    chat_content: str,
+    platform: str,
+    history: list[dict],
+    question: str,
+):
+    """Follow-up via Claude Code CLI."""
+    system_prompt = _followup_system_prompt(platform)
+
+    # Build context: include prior analysis summary + the new question
+    # Truncate chat content for context window headroom
+    chat_excerpt = chat_content[:MAX_CHAT_CHARS // 2] if len(chat_content) > MAX_CHAT_CHARS // 2 else chat_content
+
+    context_parts = [f"<chat_content>\n{chat_excerpt}\n</chat_content>\n"]
+    for msg in history:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        context_parts.append(f"<previous_{role.lower()}>\n{msg['content']}\n</previous_{role.lower()}>")
+    context_parts.append(f"\nFollow-up question: {question}")
+
+    full_prompt = "\n\n".join(context_parts)
+
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+    proc = subprocess.Popen(
+        [
+            "claude",
+            "-p",
+            "--output-format", "text",
+            "--model", "sonnet",
+            "--append-system-prompt", system_prompt,
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        env=env,
+    )
+
+    proc.stdin.write(full_prompt)
+    proc.stdin.close()
+
+    for line in iter(proc.stdout.readline, ""):
+        yield line
+    proc.wait()
+
+    if proc.returncode != 0:
+        stderr = proc.stderr.read()
+        if stderr:
+            yield f"\n\n---\n**Error from Claude Code:** {stderr.strip()}"
+
+
+def _followup_via_api(
+    chat_content: str,
+    platform: str,
+    history: list[dict],
+    question: str,
+):
+    """Follow-up via Anthropic API with proper multi-turn conversation."""
+    system_prompt = _followup_system_prompt(platform)
+
+    # Truncate chat for context headroom
+    chat_excerpt = chat_content[:MAX_CHAT_CHARS // 2] if len(chat_content) > MAX_CHAT_CHARS // 2 else chat_content
+
+    # Build multi-turn messages: first user msg includes the chat data
+    messages = []
+    for i, msg in enumerate(history):
+        if i == 0 and msg["role"] == "user":
+            # First user message — attach the chat content
+            messages.append({
+                "role": "user",
+                "content": f"<chat_content>\n{chat_excerpt}\n</chat_content>\n\n{msg['content']}",
+            })
+        else:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+
+    # Add the new follow-up question
+    messages.append({"role": "user", "content": question})
+
+    client = _get_api_client()
+    with client.messages.stream(
+        model="claude-sonnet-4-20250514",
+        max_tokens=8000,
+        system=system_prompt,
+        messages=messages,
+    ) as stream:
+        for text in stream.text_stream:
+            yield text
+
+
 def prepare_file(filename: str, content: bytes) -> dict | None:
     """Prepare a non-chat file for inclusion in the analysis."""
     mime, _ = mimetypes.guess_type(filename)

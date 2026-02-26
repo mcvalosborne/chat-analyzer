@@ -369,8 +369,103 @@ header p {
 
 .error.visible { display: block; }
 
+/* Follow-up Chat */
+.followup-section {
+    margin-top: 1.5rem;
+    display: none;
+}
+
+.followup-section.visible { display: block; }
+
+.followup-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.followup-msg {
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    max-width: 90%;
+}
+
+.followup-msg.user {
+    background: rgba(88, 166, 255, 0.12);
+    border: 1px solid rgba(88, 166, 255, 0.25);
+    align-self: flex-end;
+    color: var(--text);
+}
+
+.followup-msg.assistant {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+}
+
+/* Reuse results-content markdown styles inside follow-up messages */
+.followup-msg.assistant h1 { font-size: 1.1rem; margin: 1rem 0 0.5rem; font-weight: 700; }
+.followup-msg.assistant h2 { font-size: 0.95rem; margin: 0.75rem 0 0.4rem; font-weight: 600; color: var(--accent); }
+.followup-msg.assistant h3 { font-size: 0.875rem; margin: 0.5rem 0 0.3rem; font-weight: 600; }
+.followup-msg.assistant p { margin-bottom: 0.4rem; }
+.followup-msg.assistant ul, .followup-msg.assistant ol { margin: 0.4rem 0 0.4rem 1.25rem; }
+.followup-msg.assistant li { margin-bottom: 0.2rem; }
+.followup-msg.assistant strong { color: var(--text); }
+.followup-msg.assistant table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.followup-msg.assistant th, .followup-msg.assistant td { border: 1px solid var(--border); padding: 0.3rem 0.5rem; text-align: left; }
+.followup-msg.assistant th { background: rgba(88, 166, 255, 0.08); font-weight: 600; }
+
+.followup-msg.streaming::after {
+    content: "█";
+    animation: blink 0.8s step-end infinite;
+    color: var(--accent);
+}
+
+.followup-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.followup-form input {
+    flex: 1;
+    padding: 0.6rem 0.85rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.followup-form input:focus {
+    border-color: var(--accent);
+}
+
+.followup-form input::placeholder {
+    color: var(--text-muted);
+}
+
+.followup-form button {
+    padding: 0.6rem 1.25rem;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.followup-form button:hover { background: var(--accent-hover); }
+.followup-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
 @media (max-width: 600px) {
     .container { padding: 1rem; }
     .type-grid { grid-template-columns: 1fr; }
     .drop-zone { padding: 2rem 1rem; }
+    .followup-msg { max-width: 95%; }
 }

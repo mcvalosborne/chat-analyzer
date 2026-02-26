@@ -15,7 +15,7 @@ import uuid
 
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
-from analyzer import detect_format, prepare_file, stream_analysis
+from analyzer import detect_format, prepare_file, stream_analysis, stream_followup
 
 app = Flask(__name__)
 
@@ -46,6 +46,7 @@ def upload():
         "platform": "unknown",
         "detection": {},
         "additional_files": [],
+        "history": [],  # conversation history: [{"role": "user"|"assistant", "content": str}]
     }
 
     # Chat file extensions
@@ -110,6 +111,9 @@ def analyze():
 
     session = sessions[session_id]
 
+    # Track the full response to save in history
+    full_response = []
+
     def generate():
         try:
             for text in stream_analysis(
@@ -118,7 +122,61 @@ def analyze():
                 platform=session["platform"],
                 additional_files=session["additional_files"] or None,
             ):
+                full_response.append(text)
                 yield f"data: {json.dumps({'type': 'content', 'text': text})}\n\n"
+
+            # Save conversation history for follow-ups
+            session["history"] = [
+                {"role": "user", "content": f"[Initial {analysis_type} analysis of chat export]"},
+                {"role": "assistant", "content": "".join(full_response)},
+            ]
+
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.route("/api/followup")
+def followup():
+    """Stream a follow-up response with conversation context via SSE."""
+    session_id = request.args.get("session")
+    question = request.args.get("q", "")
+
+    if not session_id or session_id not in sessions:
+        return jsonify({"error": "Invalid session"}), 400
+    if not question.strip():
+        return jsonify({"error": "No question provided"}), 400
+
+    session = sessions[session_id]
+    if not session["history"]:
+        return jsonify({"error": "No analysis to follow up on. Run an analysis first."}), 400
+
+    full_response = []
+
+    def generate():
+        try:
+            for text in stream_followup(
+                chat_content=session["chat_content"],
+                platform=session["platform"],
+                history=session["history"],
+                question=question,
+            ):
+                full_response.append(text)
+                yield f"data: {json.dumps({'type': 'content', 'text': text})}\n\n"
+
+            # Append this exchange to history
+            session["history"].append({"role": "user", "content": question})
+            session["history"].append({"role": "assistant", "content": "".join(full_response)})
+
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"

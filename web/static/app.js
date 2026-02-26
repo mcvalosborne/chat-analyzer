@@ -169,6 +169,10 @@ function onAnalysisComplete() {
     analyzeBtn.disabled = false;
     analyzeBtn.textContent = "Analyze";
     resultsContent.innerHTML = renderMarkdown(rawMarkdown);
+
+    // Show follow-up chat
+    $(".followup-section").classList.add("visible");
+    $("#followup-input").focus();
 }
 
 // --- Copy / Download ---
@@ -189,6 +193,68 @@ $("#download-btn")?.addEventListener("click", () => {
     a.download = `analysis-${selectedType}-${new Date().toISOString().slice(0, 10)}.md`;
     a.click();
     URL.revokeObjectURL(url);
+});
+
+// --- Follow-up Chat ---
+
+const followupForm = $("#followup-form");
+const followupInput = $("#followup-input");
+const followupThread = $("#followup-thread");
+const followupBtn = $("#followup-btn");
+
+followupForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const question = followupInput.value.trim();
+    if (!question || !sessionId) return;
+
+    // Add user message to thread
+    const userMsg = document.createElement("div");
+    userMsg.className = "followup-msg user";
+    userMsg.textContent = question;
+    followupThread.appendChild(userMsg);
+
+    // Clear input
+    followupInput.value = "";
+    followupBtn.disabled = true;
+
+    // Add streaming assistant message
+    const assistantMsg = document.createElement("div");
+    assistantMsg.className = "followup-msg assistant streaming";
+    followupThread.appendChild(assistantMsg);
+
+    let followupMd = "";
+
+    const source = new EventSource(
+        `/api/followup?session=${encodeURIComponent(sessionId)}&q=${encodeURIComponent(question)}`
+    );
+
+    source.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "content") {
+            followupMd += data.text;
+            assistantMsg.innerHTML = renderMarkdown(followupMd);
+            assistantMsg.scrollIntoView({ behavior: "smooth", block: "end" });
+        } else if (data.type === "done") {
+            source.close();
+            assistantMsg.classList.remove("streaming");
+            assistantMsg.innerHTML = renderMarkdown(followupMd);
+            followupBtn.disabled = false;
+            followupInput.focus();
+        } else if (data.type === "error") {
+            source.close();
+            assistantMsg.classList.remove("streaming");
+            assistantMsg.innerHTML = `<p style="color: var(--red)">Error: ${escapeHtml(data.text)}</p>`;
+            followupBtn.disabled = false;
+        }
+    };
+
+    source.onerror = () => {
+        source.close();
+        assistantMsg.classList.remove("streaming");
+        assistantMsg.innerHTML = `<p style="color: var(--red)">Connection lost.</p>`;
+        followupBtn.disabled = false;
+    };
 });
 
 // --- Markdown Renderer ---
@@ -263,6 +329,8 @@ function resetUI() {
     analyzeBtn.classList.remove("visible");
     resultsSection.classList.remove("visible");
     resultsSection.classList.remove("streaming");
+    $(".followup-section").classList.remove("visible");
+    followupThread.innerHTML = "";
     $(".drop-prompt").style.display = "";
     fileInput.value = "";
     hideError();
