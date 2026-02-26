@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Analyzer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Chat Analyzer</h1>
+            <p>Drop a chat export from any platform. Get psychological profiles, sales insights, and relationship analysis.</p>
+        </header>
+
+        <!-- Drop Zone -->
+        <div class="drop-zone">
+            <div class="drop-prompt">
+                <h2>Drop chat files here</h2>
+                <p class="formats">WhatsApp &middot; Telegram &middot; Slack &middot; Discord &middot; iMessage &middot; Plain text</p>
+                <p class="formats" style="margin-top: 0.5rem">.txt &nbsp; .json &nbsp; .csv &nbsp; .html &nbsp; + images &amp; PDFs</p>
+            </div>
+            <div class="file-info">
+                <button class="clear-btn">Clear</button>
+                <div class="filename"></div>
+                <div class="meta"></div>
+            </div>
+            <input type="file" id="file-input" multiple>
+        </div>
+
+        <div class="status">
+            <div class="spinner"></div>
+            <span class="status-text">Detecting format...</span>
+        </div>
+
+        <div class="error"></div>
+
+        <!-- Analysis Type -->
+        <div class="analysis-section">
+            <label>Analysis Type</label>
+            <div class="type-grid">
+                <div class="type-card" data-type="psychological_profile">
+                    <h3>Psychological Profile</h3>
+                    <p>Big Five personality, attachment style, values, decision-making patterns</p>
+                </div>
+                <div class="type-card" data-type="sales_insights">
+                    <h3>Sales Insights</h3>
+                    <p>Buying signals, objection prediction, engagement playbook</p>
+                </div>
+                <div class="type-card" data-type="relationship_dynamics">
+                    <h3>Relationship Dynamics</h3>
+                    <p>Power balance, communication health, conflict patterns, evolution</p>
+                </div>
+                <div class="type-card" data-type="general_exploration">
+                    <h3>General Exploration</h3>
+                    <p>Open-ended overview — topics, sentiment, patterns, key moments</p>
+                </div>
+            </div>
+        </div>
+
+        <button class="analyze-btn">Analyze</button>
+
+        <!-- Results -->
+        <div class="results-section">
+            <div class="results-header">
+                <h2>Results</h2>
+                <div class="results-actions">
+                    <button id="copy-btn">Copy</button>
+                    <button id="download-btn">Download .md</button>
+                </div>
+            </div>
+            <div class="results-content"></div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

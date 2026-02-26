@@ -78,9 +78,30 @@ For large chat histories (1000+ messages), the orchestrator delegates date-range
 
 No package managers, no `npm install`, no Python environment. The skills are plain Markdown files that Claude Code interprets at runtime.
 
+For the **web UI** only: Python 3 + pip (auto-creates a venv).
+
 ---
 
 ## Quick Start
+
+### Option A: Web UI (drag and drop)
+
+```bash
+git clone https://github.com/mcvalosborne/chat-analyzer.git
+cd chat-analyzer
+
+# Set your API key
+export ANTHROPIC_API_KEY=your-key-here
+
+# Launch the web UI
+./web/start.sh
+```
+
+Open http://localhost:8420, drag in a chat export, pick an analysis type, and hit Analyze. Results stream in real-time.
+
+The first run creates a Python venv and installs Flask + the Anthropic SDK (~2 deps).
+
+### Option B: Claude Code CLI (full power)
 
 ```bash
 # 1. Clone the repo
@@ -107,6 +128,8 @@ claude
 
 Claude will auto-detect the chat format, ask you to choose an analysis depth and goal, then walk you through the rest.
 
+The web UI is great for quick one-off analysis. The CLI gives you the full skill pipeline, multi-agent parallelism, media transcription, and interactive follow-up questions.
+
 ---
 
 ## Project Structure
@@ -126,6 +149,14 @@ chat-analyzer/
 │   ├── transcribe-media.md       # Audio/video/image processing
 │   ├── process-export.md         # Large export handling (100MB+)
 │   └── compare-sessions.md       # Multi-conversation comparison
+├── web/
+│   ├── app.py                    # Flask server
+│   ├── analyzer.py               # Format detection + Claude API streaming
+│   ├── prompts.py                # Analysis frameworks from skills
+│   ├── start.sh                  # One-command launcher
+│   ├── requirements.txt          # flask, anthropic
+│   ├── static/                   # CSS + JS
+│   └── templates/                # HTML
 ├── data/                    # Your data goes here (git-ignored)
 │   ├── chats/[person]/      #   Chat exports per person
 │   ├── media/               #   Standalone media files
